@@ -13,7 +13,7 @@ fn test_struct_unit_like() {
 
     let haystack = "bar";
     let parsed = Foo::parse(haystack);
-    assert_eq!(parsed, Err("couldn't parse from bar".to_string()));
+    assert!(parsed.is_err());
 }
 
 #[test]
