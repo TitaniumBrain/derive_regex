@@ -30,3 +30,25 @@ fn test_struct_tuple_like() {
     let parsed = Foo::parse(haystack);
     assert!(parsed.is_err())
 }
+
+#[test]
+fn test_struct_named() {
+    #[derive(Debug, FromRegex, PartialEq, Eq)]
+    #[regex(pattern = r#"(?<first_name>\w+)\s+(?:\w+\.?\s+)*(?<last_name>\w+), (?<num>-?\d+)"#)]
+    struct Foo {
+        num: i32,
+        first_name: String,
+        last_name: String,
+    }
+
+    let haystack = "John M. Doe, 42";
+    let parsed = Foo::parse(haystack);
+    assert_eq!(
+        parsed,
+        Foo {
+            num: 42,
+            first_name: "John".to_string(),
+            last_name: "Doe".to_string(),
+        }
+    )
+}
