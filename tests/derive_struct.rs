@@ -45,10 +45,10 @@ fn test_struct_named() {
     let parsed = Foo::parse(haystack);
     assert_eq!(
         parsed,
-        Foo {
+        Ok(Foo {
             num: 42,
             first_name: "John".to_string(),
             last_name: "Doe".to_string(),
-        }
+        })
     )
 }
