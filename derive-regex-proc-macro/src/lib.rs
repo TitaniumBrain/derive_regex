@@ -1,6 +1,7 @@
 use proc_macro::{self, TokenStream};
 use quote::quote;
 use regex::Regex;
+use std::collections::HashSet;
 use syn::{
     self, parse_macro_input, punctuated::Punctuated, spanned::Spanned, Attribute, DataEnum,
     DataStruct, DeriveInput, ExprLit, Lit, LitStr, Meta, Token,
@@ -121,7 +122,79 @@ fn impl_for_named_struct(
     re: &Regex,
     pattern: &str,
 ) -> proc_macro2::TokenStream {
-    todo!()
+    let expected_cap_groups: HashSet<String> = fields_named
+        .named
+        .iter()
+        .filter_map(|field| field.ident.clone().map(|name| name.to_string()))
+        .collect();
+    let actual_cap_groups: HashSet<String> = re
+        .capture_names()
+        .skip(1)
+        .filter_map(|name| name.map(|name| name.to_string()))
+        .collect();
+
+    // struct fields not captured in a group
+    let missing_groups: HashSet<String> = expected_cap_groups
+        .difference(&actual_cap_groups)
+        .cloned()
+        .collect();
+
+    // capturing groups not matching any struct field
+    let extra_groups: HashSet<String> = actual_cap_groups
+        .difference(&expected_cap_groups)
+        .cloned()
+        .collect();
+
+    let mut group_errors = Vec::new();
+
+    if !missing_groups.is_empty() {
+        group_errors.push(
+            syn::Error::new_spanned(
+                fields_named,
+                format!(
+                    "missing capture groups for struct fields: {}",
+                    missing_groups
+                        .into_iter()
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                ),
+            )
+            .into_compile_error(),
+        );
+    }
+    if !extra_groups.is_empty() {
+        group_errors.push(
+            syn::Error::new_spanned(
+                fields_named,
+                format!(
+                    "these capture groups don't match any struct fields: {}",
+                    extra_groups.into_iter().collect::<Vec<String>>().join(", ")
+                ),
+            )
+            .into_compile_error(),
+        );
+    }
+
+    if !group_errors.is_empty() {
+        return quote! {#(#group_errors)*};
+    }
+
+    let field_exprs = fields_named.named.iter().map(|field| {
+        let field_ident = field.ident.clone().expect("field of named struct");
+        let field_name = format!("{field_ident}");
+        let field_ty = &field.ty;
+
+        quote! {
+            #field_ident: caps[#field_name].parse::<#field_ty>().map_err(|err| err.to_string())?
+        }
+    });
+
+    quote! {
+        let re = ::regex::Regex::new(#pattern).expect("Regex validated at compile time");
+        let caps = re.captures(s).ok_or("pattern did not match")?;
+
+        return Ok(Self{ #(#field_exprs),* })
+    }
 }
 
 fn impl_for_tuple_struct(
