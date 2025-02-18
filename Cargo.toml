@@ -5,3 +5,6 @@ edition = "2021"
 
 [dependencies]
 derive-regex-proc-macro = { version = "0.1.0", path = "derive-regex-proc-macro" }
+
+[dev-dependencies]
+regex = "1.11.1"
