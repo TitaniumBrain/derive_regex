@@ -3,8 +3,8 @@ use quote::quote;
 use regex::Regex;
 use std::collections::HashSet;
 use syn::{
-    self, parse_macro_input, punctuated::Punctuated, spanned::Spanned, Attribute, DataEnum,
-    DataStruct, DeriveInput, ExprLit, Lit, LitStr, Meta, Token,
+    self, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, Attribute,
+    DataEnum, DataStruct, DeriveInput, ExprLit, Ident, Lit, LitStr, Meta, Path, Token,
 };
 
 #[proc_macro_derive(FromRegex, attributes(regex))]
@@ -28,50 +28,21 @@ fn impl_derive_from_regex(derive_input: &DeriveInput) -> proc_macro2::TokenStrea
     }
 }
 
+struct FromRegexAttr {
+    pattern_literal: LitStr,
+}
+
 fn impl_derive_from_regex_for_struct(
     derive_input: &DeriveInput,
     data: &DataStruct,
 ) -> proc_macro2::TokenStream {
     let ident = &derive_input.ident;
-    let mut pattern_literal: Option<LitStr> = None;
 
-    match get_regex_attr(&derive_input.attrs) {
-        Some(attr) => {
-            match attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_separated_nonempty) {
-                Ok(nested) => {
-                    for meta in nested {
-                        let meta_span = meta.span();
-                        match meta {
-                            // #[regex(pattern = "...")]
-                            Meta::NameValue(name_value) if name_value.path.is_ident("pattern") => {
-                                match name_value.value {
-                                    syn::Expr::Lit(ExprLit {
-                                        lit: Lit::Str(lit_value),
-                                        ..
-                                    }) => pattern_literal = Some(lit_value),
-                                    _ => {
-                                        // TODO: make span cover the whole meta item, not just the name
-                                        return syn::Error::new(
-                                            meta_span,
-                                            "expcted `pattern = \"...\"` argument",
-                                        )
-                                        .into_compile_error();
-                                    }
-                                }
-                            }
-                            _ => {
-                                return syn::Error::new_spanned(
-                                    meta,
-                                    "unsupported attribute argument",
-                                )
-                                .into_compile_error()
-                            }
-                        }
-                    }
-                }
-                Err(err) => return err.into_compile_error(),
-            }
-        }
+    let attr_args = match find_regex_attr(&derive_input.attrs) {
+        Some(attr) => match get_regex_attr(derive_input, attr) {
+            Ok(attr_args) => attr_args,
+            Err(err) => return err.into_compile_error(),
+        },
 
         None => {
             return syn::Error::new(derive_input.ident.span(), "missing regex attribute")
@@ -79,32 +50,28 @@ fn impl_derive_from_regex_for_struct(
         }
     };
 
-    let pattern_literal = match pattern_literal {
-        Some(p) => p,
-        None => {
-            return syn::Error::new(
-                derive_input.ident.span(),
-                "expcted `pattern = \"...\"` argument",
-            )
-            .into_compile_error();
-        }
-    };
-
-    // needed to prevent the STring from being dropped too soon
-    let pattern_string = pattern_literal.value();
+    // needed to prevent the String from being dropped too soon
+    let pattern_string = attr_args.pattern_literal.value();
     let pattern = pattern_string.as_str();
 
     let re = match Regex::new(pattern) {
         Ok(re) => re,
         Err(e) => {
-            return syn::Error::new_spanned(pattern_literal, format!("{}", e)).into_compile_error()
+            return syn::Error::new_spanned(attr_args.pattern_literal, format!("{}", e))
+                .into_compile_error()
         }
     };
 
+    let return_type: Path = derive_input.ident.clone().into();
+
     let impl_block: proc_macro2::TokenStream = match &data.fields {
-        syn::Fields::Named(fields_named) => impl_for_named_struct(fields_named, &re, pattern),
-        syn::Fields::Unnamed(fields_unnamed) => impl_for_tuple_struct(fields_unnamed, &re, pattern),
-        syn::Fields::Unit => impl_for_unit_struct(pattern),
+        syn::Fields::Named(fields_named) => {
+            impl_for_named_struct(fields_named, &re, pattern, return_type)
+        }
+        syn::Fields::Unnamed(fields_unnamed) => {
+            impl_for_tuple_struct(fields_unnamed, &re, pattern, return_type)
+        }
+        syn::Fields::Unit => impl_for_unit_struct(pattern, return_type),
     };
 
     let (impl_generics, ty_generics, where_clause) = derive_input.generics.split_for_impl();
@@ -112,15 +79,69 @@ fn impl_derive_from_regex_for_struct(
         impl #impl_generics FromRegex for #ident #ty_generics #where_clause {
             fn parse(s: &str) -> std::result::Result<#ident, std::string::String> {
                 #impl_block
+                Err(format!{"couldn't parse from \"{}\"", s}.to_string())
             }
         }
     }
+}
+
+fn get_regex_attr(
+    derive_input: &DeriveInput,
+    attr: &Attribute,
+) -> Result<FromRegexAttr, syn::Error> {
+    let mut pattern_literal: Option<LitStr> = None;
+
+    match attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_separated_nonempty) {
+        Ok(nested) => {
+            for meta in nested {
+                let meta_span = meta.span();
+                match meta {
+                    // #[regex(pattern = "...")]
+                    Meta::NameValue(name_value) if name_value.path.is_ident("pattern") => {
+                        match name_value.value {
+                            syn::Expr::Lit(ExprLit {
+                                lit: Lit::Str(lit_value),
+                                ..
+                            }) => pattern_literal = Some(lit_value),
+                            _ => {
+                                // TODO: make span cover the whole meta item, not just the name
+                                return Err(syn::Error::new(
+                                    meta_span,
+                                    "expcted `pattern = \"...\"` argument",
+                                ));
+                            }
+                        }
+                    }
+                    _ => {
+                        return Err(syn::Error::new_spanned(
+                            meta,
+                            "unsupported attribute argument",
+                        ))
+                    }
+                }
+            }
+        }
+        Err(err) => return Err(err),
+    }
+
+    let pattern_literal = match pattern_literal {
+        Some(p) => p,
+        None => {
+            return Err(syn::Error::new(
+                derive_input.ident.span(),
+                "expcted `pattern = \"...\"` argument",
+            ));
+        }
+    };
+
+    Ok(FromRegexAttr { pattern_literal })
 }
 
 fn impl_for_named_struct(
     fields_named: &syn::FieldsNamed,
     re: &Regex,
     pattern: &str,
+    return_type: Path,
 ) -> proc_macro2::TokenStream {
     let expected_cap_groups: HashSet<String> = fields_named
         .named
@@ -191,9 +212,9 @@ fn impl_for_named_struct(
 
     quote! {
         let re = ::regex::Regex::new(#pattern).expect("Regex validated at compile time");
-        let caps = re.captures(s).ok_or("pattern did not match")?;
-
-        return Ok(Self{ #(#field_exprs),* })
+        if let Some(caps) = re.captures(s) {
+            return Ok(#return_type{ #(#field_exprs),* })
+        }
     }
 }
 
@@ -201,6 +222,7 @@ fn impl_for_tuple_struct(
     fields_unnamed: &syn::FieldsUnnamed,
     re: &Regex,
     pattern: &str,
+    return_type: Path,
 ) -> proc_macro2::TokenStream {
     let actual_groups = re.captures_len() - 1;
     let expected_groups = fields_unnamed.unnamed.len();
@@ -230,23 +252,22 @@ fn impl_for_tuple_struct(
 
     quote! {
         let re = ::regex::Regex::new(#pattern).expect("Regex validated at compile time");
-        let caps = re.captures(s).ok_or("pattern did not match")?;
-
-        return Ok(Self( #(#field_exprs),* ))
+        if let Some(caps) = re.captures(s) {
+            return Ok(#return_type( #(#field_exprs),* ))
+        }
     }
 }
 
-fn impl_for_unit_struct(pattern: &str) -> proc_macro2::TokenStream {
+fn impl_for_unit_struct(pattern: &str, return_type: Path) -> proc_macro2::TokenStream {
     quote! {
         let re = ::regex::Regex::new(#pattern).expect("Regex validated at compile time");
         if re.is_match(s) {
-            return Ok(Self);
+            return Ok(#return_type);
         }
-        Err(format!{"couldn't parse from {}", s}.to_string())
     }
 }
 
-fn get_regex_attr(attrs: &[Attribute]) -> Option<&Attribute> {
+fn find_regex_attr(attrs: &[Attribute]) -> Option<&Attribute> {
     attrs.iter().find(|attr| attr.path().is_ident("regex"))
 }
 
@@ -254,5 +275,70 @@ fn impl_derive_from_regex_for_enum(
     derive_input: &DeriveInput,
     data: &DataEnum,
 ) -> proc_macro2::TokenStream {
-    todo!()
+    let enum_ident = &derive_input.ident;
+
+    let impls = data
+        .variants
+        .iter()
+        .map(|variant| -> proc_macro2::TokenStream {
+            let attr_args = match find_regex_attr(&variant.attrs) {
+                Some(attr) => match get_regex_attr(derive_input, attr) {
+                    Ok(attr_args) => attr_args,
+                    Err(err) => return err.into_compile_error(),
+                },
+
+                None => {
+                    return syn::Error::new(variant.ident.span(), "missing regex attribute")
+                        .into_compile_error()
+                }
+            };
+
+            // needed to prevent the String from being dropped too soon
+            let pattern_string = attr_args.pattern_literal.value();
+            let pattern = pattern_string.as_str();
+
+            let re = match Regex::new(pattern) {
+                Ok(re) => re,
+                Err(e) => {
+                    return syn::Error::new_spanned(attr_args.pattern_literal, format!("{}", e))
+                        .into_compile_error()
+                }
+            };
+
+            let variant_ident = &variant.ident;
+            let return_type = parse_quote!(#enum_ident::#variant_ident);
+
+            match &variant.fields {
+                syn::Fields::Named(fields_named) => {
+                    impl_for_named_struct(fields_named, &re, pattern, return_type)
+                }
+                syn::Fields::Unnamed(fields_unnamed) => {
+                    impl_for_tuple_struct(fields_unnamed, &re, pattern, return_type)
+                }
+                syn::Fields::Unit => impl_for_unit_struct(pattern, return_type),
+            }
+        });
+
+    let (impl_generics, ty_generics, where_clause) = derive_input.generics.split_for_impl();
+    quote! {
+        impl #impl_generics FromRegex for #enum_ident #ty_generics #where_clause {
+            fn parse(s: &str) -> std::result::Result<#enum_ident, std::string::String> {
+                #(#impls)*
+                Err(format!{"couldn't parse from \"{}\"", s}.to_string())
+            }
+        }
+    }
 }
+
+// fn impl_for_unit_variant(
+//     enum_ident: &Ident,
+//     variant_ident: &Ident,
+//     pattern: LitStr,
+// ) -> proc_macro2::TokenStream {
+//     quote! {
+//         let re = ::regex::Regex::new(#pattern).expect("Regex validated at compile time");
+//         if re.is_match(s) {
+//             return Ok(#enum_ident::#variant_ident);
+//         }
+//     }
+// }
