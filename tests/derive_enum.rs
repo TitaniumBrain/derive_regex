@@ -18,7 +18,6 @@ fn test_enum_unit_variant() {
     let haystack = "fooz";
     let parsed = Foo::parse(haystack);
     assert_eq!(parsed, Ok(Foo::Baz));
-    // assert!(parsed.is_err());
 }
 
 #[test]
@@ -63,5 +62,29 @@ fn test_enum_named_variant() {
             age: 20
         })
     );
-    // assert!(parsed.is_err());
+}
+
+#[test]
+fn test_enum_all_variants() {
+    #[derive(FromRegex, Debug, PartialEq, Eq)]
+    enum Foo {
+        #[regex(pattern = "bar")]
+        Bar,
+        #[regex(pattern = r">\s*(\d+)")]
+        Baz(i32),
+        #[regex(pattern = r"(?<one>\d+)\.\.\.(?<two>\d+)")]
+        Buzz { one: i32, two: i32 },
+    }
+
+    let haystack = "bar";
+    let parsed = Foo::parse(haystack);
+    assert_eq!(parsed, Ok(Foo::Bar));
+
+    let haystack = ">>> 123";
+    let parsed = Foo::parse(haystack);
+    assert_eq!(parsed, Ok(Foo::Baz(123)));
+
+    let haystack = "123...456";
+    let parsed = Foo::parse(haystack);
+    assert_eq!(parsed, Ok(Foo::Buzz { one: 123, two: 456 }));
 }
