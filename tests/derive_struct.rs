@@ -1,5 +1,4 @@
 use derive_regex::*;
-use regex;
 
 #[test]
 fn test_struct_unit_like() {

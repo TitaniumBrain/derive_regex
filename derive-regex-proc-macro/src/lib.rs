@@ -4,7 +4,7 @@ use regex::Regex;
 use std::collections::HashSet;
 use syn::{
     self, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, Attribute,
-    DataEnum, DataStruct, DeriveInput, ExprLit, Ident, Lit, LitStr, Meta, Path, Token,
+    DataEnum, DataStruct, DeriveInput, ExprLit, Lit, LitStr, Meta, Path, Token,
 };
 
 #[proc_macro_derive(FromRegex, attributes(regex))]

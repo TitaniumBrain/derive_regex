@@ -1,5 +1,4 @@
 use derive_regex::*;
-use regex;
 
 #[test]
 fn test_enum_unit_variant() {
