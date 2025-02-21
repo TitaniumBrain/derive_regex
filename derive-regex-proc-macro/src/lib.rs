@@ -329,16 +329,3 @@ fn impl_derive_from_regex_for_enum(
         }
     }
 }
-
-// fn impl_for_unit_variant(
-//     enum_ident: &Ident,
-//     variant_ident: &Ident,
-//     pattern: LitStr,
-// ) -> proc_macro2::TokenStream {
-//     quote! {
-//         let re = ::regex::Regex::new(#pattern).expect("Regex validated at compile time");
-//         if re.is_match(s) {
-//             return Ok(#enum_ident::#variant_ident);
-//         }
-//     }
-// }
