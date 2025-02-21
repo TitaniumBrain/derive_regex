@@ -2,6 +2,11 @@
 name = "derive-regex-proc-macro"
 version = "0.1.0"
 edition = "2021"
+authors = ["TitaniumBrain <titaniumbrain@vivaldi.net>"]
+description = "proc macro implementation of derive_regex"
+repository = "https://github.com/TitaniumBrain/derive_regex"
+license = "MIT"
+# na keywords to avoid easy discovery
 
 [lib]
 proc-macro = true
