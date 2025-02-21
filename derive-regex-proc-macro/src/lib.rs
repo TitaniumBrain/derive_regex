@@ -28,7 +28,9 @@ fn impl_derive_from_regex(derive_input: &DeriveInput) -> proc_macro2::TokenStrea
     }
 }
 
+/// The configuration options for the #[regex(...)] attribute
 struct FromRegexAttr {
+    /// The pattern to match for the struct/variant
     pattern_literal: LitStr,
 }
 
@@ -85,6 +87,12 @@ fn impl_derive_from_regex_for_struct(
     }
 }
 
+/// Find the `#[regex(...)]` attribite in the item's attributes
+fn find_regex_attr(attrs: &[Attribute]) -> Option<&Attribute> {
+    attrs.iter().find(|attr| attr.path().is_ident("regex"))
+}
+
+/// Return the parameters of the `#[regex(...)]` attribute as a `FromRegexAttr `instance
 fn get_regex_attr(
     derive_input: &DeriveInput,
     attr: &Attribute,
@@ -265,10 +273,6 @@ fn impl_for_unit_struct(pattern: &str, return_type: Path) -> proc_macro2::TokenS
             return Ok(#return_type);
         }
     }
-}
-
-fn find_regex_attr(attrs: &[Attribute]) -> Option<&Attribute> {
-    attrs.iter().find(|attr| attr.path().is_ident("regex"))
 }
 
 fn impl_derive_from_regex_for_enum(
