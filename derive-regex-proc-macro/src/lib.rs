@@ -77,7 +77,7 @@ fn impl_derive_from_regex_for_struct(
     let (impl_generics, ty_generics, where_clause) = derive_input.generics.split_for_impl();
     quote! {
         impl #impl_generics FromRegex for #ident #ty_generics #where_clause {
-            fn parse(s: &str) -> std::result::Result<#ident, std::string::String> {
+            fn parse(input: &str) -> std::result::Result<#ident, std::string::String> {
                 #impl_block
                 Err(format!{"couldn't parse from \"{}\"", s}.to_string())
             }
@@ -322,7 +322,7 @@ fn impl_derive_from_regex_for_enum(
     let (impl_generics, ty_generics, where_clause) = derive_input.generics.split_for_impl();
     quote! {
         impl #impl_generics FromRegex for #enum_ident #ty_generics #where_clause {
-            fn parse(s: &str) -> std::result::Result<#enum_ident, std::string::String> {
+            fn parse(input: &str) -> std::result::Result<#enum_ident, std::string::String> {
                 #(#impls)*
                 Err(format!{"couldn't parse from \"{}\"", s}.to_string())
             }
