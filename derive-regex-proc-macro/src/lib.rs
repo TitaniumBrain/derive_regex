@@ -81,7 +81,7 @@ fn impl_derive_from_regex_for_struct(
         impl #impl_generics FromRegex for #ident #ty_generics #where_clause {
             fn parse(input: &str) -> std::result::Result<#ident, std::string::String> {
                 #impl_block
-                Err(format!{"couldn't parse from \"{}\"", s}.to_string())
+                Err(format!{"couldn't parse from \"{}\"", input}.to_string())
             }
         }
     }
@@ -220,7 +220,7 @@ fn impl_for_named_struct(
 
     quote! {
         let re = ::regex::Regex::new(#pattern).expect("Regex validated at compile time");
-        if let Some(caps) = re.captures(s) {
+        if let Some(caps) = re.captures(input) {
             return Ok(#return_type{ #(#field_exprs),* })
         }
     }
@@ -260,7 +260,7 @@ fn impl_for_tuple_struct(
 
     quote! {
         let re = ::regex::Regex::new(#pattern).expect("Regex validated at compile time");
-        if let Some(caps) = re.captures(s) {
+        if let Some(caps) = re.captures(input) {
             return Ok(#return_type( #(#field_exprs),* ))
         }
     }
@@ -269,7 +269,7 @@ fn impl_for_tuple_struct(
 fn impl_for_unit_struct(pattern: &str, return_type: Path) -> proc_macro2::TokenStream {
     quote! {
         let re = ::regex::Regex::new(#pattern).expect("Regex validated at compile time");
-        if re.is_match(s) {
+        if re.is_match(input) {
             return Ok(#return_type);
         }
     }
@@ -328,7 +328,7 @@ fn impl_derive_from_regex_for_enum(
         impl #impl_generics FromRegex for #enum_ident #ty_generics #where_clause {
             fn parse(input: &str) -> std::result::Result<#enum_ident, std::string::String> {
                 #(#impls)*
-                Err(format!{"couldn't parse from \"{}\"", s}.to_string())
+                Err(format!{"couldn't parse from \"{}\"", input}.to_string())
             }
         }
     }
