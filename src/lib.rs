@@ -10,6 +10,7 @@ pub use derive_regex_proc_macro::FromRegex;
 /// The fields must be of a type that implements FromStr.
 ///
 /// # Example
+/// ```rust`
 /// use derive_regex::FromRegex;
 ///
 /// #[derive(Debug, FromRegex, PartialEq)]
@@ -27,6 +28,7 @@ pub use derive_regex_proc_macro::FromRegex;
 ///         age: 30,
 ///     });
 /// }
+/// ````
 pub trait FromRegex {
     fn parse(input: &str) -> Result<Self, String>
     where
