@@ -2,9 +2,14 @@
 name = "derive-regex"
 version = "0.1.0"
 edition = "2021"
+authors = ["TitaniumBrain <titaniumbrain@vivaldi.net>"]
+description = "Easily parse a regex into a struct or enum variant"
+repository = "https://github.com/TitaniumBrain/derive_regex"
+license = "MIT"
+keywords = ["derive", "regex"]
 
 [dependencies]
-derive-regex-proc-macro = { version = "0.1.0", path = "derive-regex-proc-macro" }
+derive-regex-proc-macro = { version = "0.1.0", path = "./derive-regex-proc-macro" }
 
 [dev-dependencies]
 regex = "1.11.1"
