@@ -1,6 +1,6 @@
 [package]
 name = "derive-regex-proc-macro"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["TitaniumBrain <titaniumbrain@vivaldi.net>"]
 description = "proc macro implementation of derive_regex"
