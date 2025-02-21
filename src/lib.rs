@@ -10,25 +10,24 @@ pub use derive_regex_proc_macro::FromRegex;
 /// The fields must be of a type that implements FromStr.
 ///
 /// # Example
-/// ```rust`
+///
+/// ```rust
 /// use derive_regex::FromRegex;
 ///
 /// #[derive(Debug, FromRegex, PartialEq)]
-/// #[regex = r"(?P<name>\w+),\s*(?P<age>\d+)"]
+/// #[regex(pattern = r"(?P<name>\w+),\s*(?P<age>\d+)")]
 /// struct Person {
 ///     name: String,
 ///     age: u32,
 /// }
 ///
-/// fn main() {
 ///     let input = "Alice, 30";
 ///     let person = Person::parse(input).unwrap();
 ///     assert_eq!(person, Person {
 ///         name: "Alice".to_string(),
 ///         age: 30,
 ///     });
-/// }
-/// ````
+/// ```
 pub trait FromRegex {
     fn parse(input: &str) -> Result<Self, String>
     where
