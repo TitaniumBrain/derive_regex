@@ -219,9 +219,12 @@ fn impl_for_named_struct(
     });
 
     quote! {
-        let re = ::regex::Regex::new(#pattern).expect("Regex validated at compile time");
-        if let Some(caps) = re.captures(input) {
-            return Ok(#return_type{ #(#field_exprs),* })
+        {
+            use once_cell::sync::Lazy;
+            static RE: Lazy<::regex::Regex> = Lazy::new(|| ::regex::Regex::new(#pattern).expect("Regex validated at compile time"));
+            if let Some(caps) = RE.captures(input) {
+                return Ok(#return_type{ #(#field_exprs),* })
+            }
         }
     }
 }
@@ -259,18 +262,24 @@ fn impl_for_tuple_struct(
     });
 
     quote! {
-        let re = ::regex::Regex::new(#pattern).expect("Regex validated at compile time");
-        if let Some(caps) = re.captures(input) {
-            return Ok(#return_type( #(#field_exprs),* ))
-        }
+        {
+            use once_cell::sync::Lazy;
+            static RE: Lazy<::regex::Regex> = Lazy::new(|| ::regex::Regex::new(#pattern).expect("Regex validated at compile time"));
+            if let Some(caps) = RE.captures(input) {
+                return Ok(#return_type( #(#field_exprs),* ))
+            }
+       }
     }
 }
 
 fn impl_for_unit_struct(pattern: &str, return_type: Path) -> proc_macro2::TokenStream {
     quote! {
-        let re = ::regex::Regex::new(#pattern).expect("Regex validated at compile time");
-        if re.is_match(input) {
-            return Ok(#return_type);
+        {
+            use once_cell::sync::Lazy;
+            static RE: Lazy<::regex::Regex> = Lazy::new(|| ::regex::Regex::new(#pattern).expect("Regex validated at compile time"));
+            if RE.is_match(input) {
+                return Ok(#return_type);
+            }
         }
     }
 }

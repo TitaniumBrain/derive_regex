@@ -10,6 +10,7 @@ keywords = ["derive", "regex"]
 
 [dependencies]
 derive-regex-proc-macro = { version = "0.1.2", path = "./derive-regex-proc-macro" }
+once_cell = "1.21.1"
 
 [dev-dependencies]
 regex = "1.11.1"
